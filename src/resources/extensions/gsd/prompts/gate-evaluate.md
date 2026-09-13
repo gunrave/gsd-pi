@@ -22,6 +22,8 @@ You are evaluating **quality gates in parallel** for this slice. Each gate is an
 
 ## Execution Protocol
 
+**Synchronous evaluation required.** Evaluate every gate within this turn. Each `subagent` call MUST set `run_in_background: false` — background dispatch never relays completion back and the gate is silently lost. Your turn may NOT end until `gsd_save_gate_result` has persisted a verdict for EVERY gate in this unit's scope: {{gateIdList}}.
+
 1. **Dispatch all gates** using `subagent` in parallel mode. Call `subagent` with `tasks: [{ agent: "tester", task: "<prompt>" }, ...]` — one object per gate. Each subagent prompt is provided below.
    Pass `tasks` as a **JSON array**, not a string. Example shape:
 
