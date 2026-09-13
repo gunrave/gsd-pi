@@ -51,8 +51,10 @@ const PERMANENT_RE = /auth|unauthorized|forbidden|invalid.*key|invalid.*api|bill
 // - "You've hit your limit"
 // - "You've reached your limit"
 // - "usage limit" / "quota reached"
-// - "out of extra usage"
-const RATE_LIMIT_RE = /rate.?limit|too many requests|429|(?:hit|reached) your (?:\w+ )?limit|(?:usage|session|weekly|daily|monthly|quota) limit|out of extra usage|quota (?:reached|hit)|limit.*resets?/i;
+// - "out of extra usage" (#4397)
+// - "draw from your extra usage" / "claude.ai/settings/usage"
+//   (current Anthropic subscription extra-usage 400, #2314)
+const RATE_LIMIT_RE = /rate.?limit|too many requests|429|(?:hit|reached) your (?:\w+ )?limit|(?:usage|session|weekly|daily|monthly|quota) limit|out of extra usage|from your extra usage|claude\.ai\/settings\/usage|quota (?:reached|hit)|limit.*resets?/i;
 // OpenRouter affordability-style quota errors should be treated as transient
 // so core retry logic can lower maxTokens and continue in-session.
 const AFFORDABILITY_RE = /requires more credits|can only afford|insufficient credits|not enough credits|fewer max_tokens/i;
