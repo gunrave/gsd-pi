@@ -8,6 +8,28 @@ This changelog starts from the `open-gsd/gsd-pi` ownership baseline. Earlier pro
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-09-14
+
+### Added
+- **gsd**: enforce decisions register at `gsd_plan_task` / replan write time (#2248)
+
+### Fixed
+- **gsd**: auto-mode wedge recovery — Anthropic extra-usage 400 failover, gate-evaluate sync dispatch, `recheckWedge` clearance (#2314, #2310, #2309)
+- **gsd**: closeout and lifecycle authority — husk-task gates, legacy slice parent lifecycle, adopted-milestone park (#2239, #2267, #2313, #2126)
+- **gsd**: verification and pre-exec — quoted-shell prose heuristic, attempt-scoped evidence, language-neutral markers (#2290, #2259, #1994)
+- **gsd**: closeout refusal and startup resilience — `CLOSEOUT-VERIFICATION-FAILED` alias, model catalog preservation on transient errors (#2033, #2077, #2294)
+- **gsd**: stale wedge GC for interrupted closeouts (#2159)
+- **gsd**: Windows unbound-evidence exchange fallback for projection writes (#2178)
+- **gsd**: restore adopted-milestone gate closure guard for closeout consistency
+- **gsd**: worktree orphan reconcile fails loudly and stops auto-mode resume (#2322)
+- **gsd**: compound `gsd_exec` evidence mismatches state execution provenance (#2327)
+- **gsd**: clamp passing class verdict under non-succeeded milestone validation (#2308)
+- **gsd**: GPT-6 Astra for Codex users (#2250)
+- **gsd**: Windows `PATH` shadowing in verify spawn (#2086)
+- **gsd**: custom provider headers in TUI mode (#2114)
+- **pi-agent-core**: Vitest resolve aliases for workspace `@gsd/pi-ai` (#2140)
+- **init**: defer parse-cache registration to break circular module init
+
 ## [1.20.0] - 2026-09-12
 
 ### Added

@@ -168,21 +168,6 @@ importers:
       '@mariozechner/clipboard':
         specifier: 0.3.6
         version: 0.3.6
-      '@opengsd/engine-darwin-arm64':
-        specifier: 1.20.0
-        version: 1.20.0
-      '@opengsd/engine-darwin-x64':
-        specifier: 1.20.0
-        version: 1.20.0
-      '@opengsd/engine-linux-arm64-gnu':
-        specifier: 1.20.0
-        version: 1.20.0
-      '@opengsd/engine-linux-x64-gnu':
-        specifier: 1.20.0
-        version: 1.20.0
-      '@opengsd/engine-win32-x64-msvc':
-        specifier: 1.20.0
-        version: 1.20.0
       fsevents:
         specifier: ~2.3.3
         version: 2.3.3
@@ -2118,31 +2103,6 @@ packages:
   '@nolyfill/is-core-module@1.0.39':
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
-
-  '@opengsd/engine-darwin-arm64@1.20.0':
-    resolution: {integrity: sha512-1p9bdnpv3JNOYkNLhe9R5as9PjgAFHrIt/OmBWU33nGO+JQ/aZexBc3/4NNFtAfO9bh6+vYjF1+FOBPbxB9Fiw==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@opengsd/engine-darwin-x64@1.20.0':
-    resolution: {integrity: sha512-gdHdX2FtP/8ijPMb3iCvK6p33Yr65r1WZC3DJexV7UtHDf2g8Ctv1rX4706OL8ojEWVFCn2/VRss/n9L9L/NtQ==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@opengsd/engine-linux-arm64-gnu@1.20.0':
-    resolution: {integrity: sha512-1rXapqxba1mRxPhtVRwkRrMgAMDWlSMZMAlBk7a/NZ6N2DjZ73xOSy6F/IJ28pWuE2eOl8o9bmBaYp3ScXzoCA==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@opengsd/engine-linux-x64-gnu@1.20.0':
-    resolution: {integrity: sha512-Mg2oQphXAIYsQU51b2b5pDgIi3xsqN9oikn2E/tJvvlL//6riE5H9+/neqnVzk7hZSa8qMWxuktwvVrQhCsfig==}
-    cpu: [x64]
-    os: [linux]
-
-  '@opengsd/engine-win32-x64-msvc@1.20.0':
-    resolution: {integrity: sha512-lWxNyF1+VRQIXl095UQr9BrAciGJVjDkjxj3DBcGjjDhxrgjakpUDVKcuqCYuri9psFFpYuadH3LdWemMUF1Ow==}
-    cpu: [x64]
-    os: [win32]
 
   '@opengsd/gsd-browser@0.2.2':
     resolution: {integrity: sha512-ld4TOZKcXJF3v0KVlUqrOfHC+rYG8l00Dw0GkEuHtQTIYq7+blYO2acnGHN+P2Owod0xlq/2k1UQDaYgrRSKgw==}
@@ -7884,21 +7844,6 @@ snapshots:
       fastq: 1.20.1
 
   '@nolyfill/is-core-module@1.0.39': {}
-
-  '@opengsd/engine-darwin-arm64@1.20.0':
-    optional: true
-
-  '@opengsd/engine-darwin-x64@1.20.0':
-    optional: true
-
-  '@opengsd/engine-linux-arm64-gnu@1.20.0':
-    optional: true
-
-  '@opengsd/engine-linux-x64-gnu@1.20.0':
-    optional: true
-
-  '@opengsd/engine-win32-x64-msvc@1.20.0':
-    optional: true
 
   '@opengsd/gsd-browser@0.2.2': {}
 
