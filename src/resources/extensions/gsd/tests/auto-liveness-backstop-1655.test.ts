@@ -15,17 +15,23 @@ import {
   insertSlice,
   insertTask,
   insertAssessment,
+  insertGateRow,
+  saveGateResult,
   updateTaskStatus,
 } from '../gsd-db.ts';
 import {
   LIVENESS_TRIP_THRESHOLD,
   COMPLETED_NO_ADVANCE_GUARD_ID,
   acknowledgeWedge,
+  clearAbandonedCloseoutSignatures,
   formatWedgeRefusalNotice,
   formatWedgeTripNotice,
+  garbageCollectResolvedWedges,
   getOpenWedge,
   hashBackstopInput,
+  recheckCompletedNoAdvanceWedge,
   recordNonAdvancingOutcome,
+  recordNonAdvancingRecurrence,
   serializeNonAdvancingEvidence,
   snapshotUnitTargetRows,
   wedgeResumeCommand,
@@ -347,6 +353,41 @@ test('ADR-047: run-uat target advances when a retried assessment changes verdict
   );
 });
 
+test('ADR-047: gate-evaluate target advances when a scoped gate verdict is persisted (#2310)', (t) => {
+  const base = makeBase();
+  t.after(() => cleanup(base));
+  openDatabase(join(base, '.gsd', 'gsd.db'));
+  insertMilestone({ id: 'M001', title: 'T', status: 'active' });
+  insertSlice({ id: 'S01', milestoneId: 'M001', title: 'S', status: 'active', depends: [] });
+  insertGateRow({ milestoneId: 'M001', sliceId: 'S01', gateId: 'Q3', scope: 'slice' });
+  insertGateRow({ milestoneId: 'M001', sliceId: 'S01', gateId: 'Q4', scope: 'slice' });
+
+  const before = readTargetSnapshot('gate-evaluate', 'M001/S01/gates+Q3,Q4');
+  assert.ok(before, 'gate-evaluate snapshot available when gate rows exist');
+
+  saveGateResult({
+    milestoneId: 'M001',
+    sliceId: 'S01',
+    gateId: 'Q3',
+    verdict: 'pass',
+    rationale: 'no auth surface',
+    findings: '',
+  });
+  const afterQ3 = readTargetSnapshot('gate-evaluate', 'M001/S01/gates+Q3,Q4');
+  assert.notEqual(afterQ3, before, 'persisting one scoped gate verdict must advance the hash');
+
+  saveGateResult({
+    milestoneId: 'M001',
+    sliceId: 'S01',
+    gateId: 'Q4',
+    verdict: 'pass',
+    rationale: 'requirements covered',
+    findings: '',
+  });
+  const afterQ4 = readTargetSnapshot('gate-evaluate', 'M001/S01/gates+Q3,Q4');
+  assert.notEqual(afterQ4, afterQ3, 'persisting the remaining gate verdict must advance again');
+});
+
 test('ADR-047: stable guard identity isolates identical payloads from different guards', (t) => {
   const base = makeBase();
   t.after(() => cleanup(base));
@@ -501,4 +542,87 @@ test('hashBackstopInput is deterministic and payload-faithful', () => {
     hashBackstopInput('verdict payload 2'),
   );
   assert.equal(hashBackstopInput('same'), hashBackstopInput('same'));
+});
+
+test('#2159: validate-milestone target advances when validation verdict is persisted', (t) => {
+  const base = makeBase();
+  t.after(() => cleanup(base));
+  openDatabase(join(base, '.gsd', 'gsd.db'));
+  insertMilestone({ id: 'M001', title: 'T', status: 'active' });
+  insertSlice({ id: 'S01', milestoneId: 'M001', title: 'S', status: 'complete', depends: [] });
+
+  const before = readTargetSnapshot('validate-milestone', 'M001');
+  assert.ok(before, 'validate-milestone snapshot available when milestone rows exist');
+
+  insertAssessment({
+    path: '.gsd/phases/01-fixture/01-VALIDATION.md',
+    milestoneId: 'M001',
+    sliceId: 'S01',
+    status: 'pass',
+    scope: 'milestone-validation',
+    fullContent: 'validation passed',
+    createdAt: '2026-01-02T00:00:00.000Z',
+  });
+  insertGateRow({ milestoneId: 'M001', sliceId: 'S01', gateId: 'MV01', scope: 'milestone' });
+  saveGateResult({
+    milestoneId: 'M001',
+    sliceId: 'S01',
+    gateId: 'MV01',
+    verdict: 'pass',
+    rationale: 'criteria met',
+    findings: '',
+  });
+
+  const after = readTargetSnapshot('validate-milestone', 'M001');
+  assert.notEqual(after, before, 'persisted validation must advance the validate-milestone target');
+});
+
+test('#2159: garbageCollectResolvedWedges auto-acks a stale completed-no-advance wedge', async (t) => {
+  const base = makeBase();
+  t.after(() => cleanup(base));
+  openDatabase(join(base, '.gsd', 'gsd.db'));
+  insertMilestone({ id: 'M001', title: 'T', status: 'active' });
+  insertSlice({ id: 'S01', milestoneId: 'M001', title: 'S', status: 'active', depends: [] });
+  insertTask({ id: 'T01', sliceId: 'S01', milestoneId: 'M001', title: 'task', status: 'pending' });
+
+  const atWedge = readTargetSnapshot('complete-slice', 'M001/S01');
+  assert.ok(atWedge);
+  const record = () => recordNonAdvancingOutcome({
+    scopeId: SCOPE,
+    guardId: COMPLETED_NO_ADVANCE_GUARD_ID,
+    unitType: 'complete-slice',
+    unitId: 'M001/S01',
+    inputPayload: atWedge!,
+  });
+  assert.equal(record().tripped, false);
+  const tripped = record();
+  assert.equal(tripped.tripped, true);
+  if (!tripped.tripped) return;
+
+  updateTaskStatus('M001', 'S01', 'T01', 'complete');
+  const gc = await garbageCollectResolvedWedges(SCOPE, async (wedge) => recheckCompletedNoAdvanceWedge(wedge));
+  assert.equal(gc.ok, true);
+  if (!gc.ok) return;
+  assert.equal(gc.acknowledged.length, 1);
+  assert.equal(gc.acknowledged[0]!.wedgeId, tripped.wedge.wedgeId);
+  assert.equal(readOpenWedge(), null, 'stale wedge must be garbage-collected after target advancement');
+});
+
+test('#2159: abandoned closeout clears finalize-retry recurrence counters', (t) => {
+  const base = makeBase();
+  t.after(() => cleanup(base));
+  openDatabase(join(base, '.gsd', 'gsd.db'));
+
+  const record = () => recordNonAdvancingRecurrence({
+    scopeId: SCOPE,
+    guardId: 'finalize-retry',
+    unitType: 'validate-milestone',
+    unitId: 'M001',
+    inputPayload: 'finalize-retry: missing artifact',
+  });
+  assert.equal(record().recurred, false);
+  clearAbandonedCloseoutSignatures(SCOPE, 'validate-milestone', 'M001');
+  const afterAbandon = record();
+  assert.equal(afterAbandon.recurred, false, 'abandoned attempt must not inherit the killed run counter');
+  assert.equal(afterAbandon.count, 1);
 });

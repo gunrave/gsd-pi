@@ -70,6 +70,9 @@ class GsdMcpClient:
         # project-relative path that hangs gsd_execute until timeout.
         resolved = shutil.which(self._config.cli_path) or self._config.cli_path
         env["GSD_CLI_PATH"] = resolved
+        # Keep this sidecar out of gsd-mcp-server's singleton PID registry so an
+        # executor-spawned workflow MCP server cannot SIGTERM it (open-gsd/gsd-pi#2291).
+        env["GSD_MCP_CLIENT_MANAGED"] = "1"
         return env
 
     def ensure_version(self) -> None:
@@ -216,7 +219,7 @@ class GsdMcpClient:
                 "params": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {},
-                    "clientInfo": {"name": "open-gsd-hermes", "version": "1.19.0"},
+                    "clientInfo": {"name": "open-gsd-hermes", "version": "1.20.0"},
                 },
             }
         )
