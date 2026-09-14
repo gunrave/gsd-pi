@@ -160,6 +160,11 @@ test("classifyError keeps generic invalid_request_error 400 bodies out of the ra
   assert.ok(!isTransient(result));
 });
 
+test("classifyError does not treat benign usage prose as rate-limit (#2314)", () => {
+  const result = classifyError("Review extra usage stats in the dashboard.");
+  assert.notEqual(result.kind, "rate-limit");
+});
+
 test("classifyError treats OpenRouter affordability errors as transient rate-limit class", () => {
   const result = classifyError(
     "402 This request requires more credits, or fewer max_tokens. You requested up to 32000 tokens, but can only afford 329.",

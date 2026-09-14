@@ -244,7 +244,14 @@ import { writeUnitRuntimeRecord } from "./unit-runtime.js";
 import { countPendingCaptures } from "./captures.js";
 import { CMUX_CHANNELS, type CmuxLogLevel } from "../shared/cmux-events.js";
 import { ensureDbOpen } from "./bootstrap/dynamic-tools.js";
-import { acknowledgeWedge, formatWedgeRefusalNotice, getOpenWedge } from "./auto-liveness-backstop.js";
+import {
+  acknowledgeWedge,
+  COMPLETED_NO_ADVANCE_GUARD_ID,
+  formatWedgeRefusalNotice,
+  garbageCollectResolvedWedges,
+  getOpenWedge,
+  recheckCompletedNoAdvanceWedge,
+} from "./auto-liveness-backstop.js";
 import { getValidationBlockMessageForBase } from "./validation-block-guard.js";
 import { getUnmergedMilestoneBlockMessageForBase } from "./unmerged-milestone-guard.js";
 import { clearSessionModelOverride } from "./session-model-override.js";
@@ -279,6 +286,7 @@ import {
 } from "./auto-start.js";
 import { initHealthWidget } from "./health-widget.js";
 import { runLegacyAutoLoop, runUokKernelLoop } from "./auto/loop.js";
+import { autoResumeEnterFailureStop } from "./auto/phase-helpers.js";
 import { resolveAgentEnd, resolveAgentEndCancelled, _resetPendingResolve, isSessionSwitchInFlight } from "./auto/resolve.js";
 import type { LoopDeps, PauseAutoOptions, PauseAutoUnitIdentity, StopAutoOptions } from "./auto/loop-deps.js";
 import type { ErrorContext } from "./auto/types.js";
@@ -2699,7 +2707,23 @@ export async function startAuto(
     );
     return;
   }
-  const openWedgeResult = getOpenWedge(normalizeRealPath(base) || base);
+  const scopeId = normalizeRealPath(base) || base;
+  const gcResult = await garbageCollectResolvedWedges(scopeId, async (wedge) => {
+    if (wedge.guardId === COMPLETED_NO_ADVANCE_GUARD_ID) {
+      return recheckCompletedNoAdvanceWedge(wedge);
+    }
+    // One-shot runtime wedges (finalize-break, etc.) cannot be re-probed
+    // without a live orchestrator; leave them for --resume-wedge.
+    return { blocking: true };
+  });
+  if (!gcResult.ok) {
+    ctx.ui.notify(
+      `Auto-mode blocked — liveness backstop unavailable: ${gcResult.error}. Run \`/gsd doctor --fix\` before retrying.`,
+      "error",
+    );
+    return;
+  }
+  const openWedgeResult = getOpenWedge(scopeId);
   if (!openWedgeResult.ok) {
     ctx.ui.notify(
       `Auto-mode blocked — liveness backstop unavailable: ${openWedgeResult.error}. Run \`/gsd doctor --fix\` before retrying.`,
@@ -3003,12 +3027,12 @@ export async function startAuto(
       const enterResult = buildLifecycle().enterMilestone(s.currentMilestoneId, {
         notify: ctx.ui.notify.bind(ctx.ui),
       });
-      if (!enterResult.ok && enterResult.reason === "lease-conflict") {
-        ctx.ui.notify(
-          `Cannot resume milestone ${s.currentMilestoneId}: lease is held by another worker.`,
-          "error",
-        );
-        await stopAuto(ctx, pi, "lease-conflict during resume");
+      // #2317 — lease conflicts and stale worktree registrations must stop the
+      // resume: continuing would run the milestone against the wrong tree.
+      const enterStop = autoResumeEnterFailureStop(enterResult, s.currentMilestoneId);
+      if (enterStop) {
+        ctx.ui.notify(enterStop.notify, "error");
+        await stopAuto(ctx, pi, enterStop.detail);
         return;
       }
       // s.basePath may have been updated to a worktree path by enterMilestone.
