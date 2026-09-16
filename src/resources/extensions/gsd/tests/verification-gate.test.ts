@@ -2012,22 +2012,15 @@ describe("verification-gate: evidence qualification (#2338)", () => {
 });
 
 describe("verification-gate: shell resolution (#2338)", () => {
-  test("win32 with runnable bash routes POSIX verifies through bash -c", () => {
-    const shell = resolveVerificationShell(true, true, "vendor/bin/pest tests/Unit/Models/BookingTest.php");
+  test("win32 always routes verifies through bash -c (never cmd)", () => {
+    const shell = resolveVerificationShell(true, "vendor/bin/pest tests/Unit/Models/BookingTest.php");
     assert.equal(shell.shellBin, "bash");
     assert.deepStrictEqual(shell.shellArgs, ["-c", "vendor/bin/pest tests/Unit/Models/BookingTest.php"]);
     assert.equal(shell.windowsVerbatimArguments, false);
   });
 
-  test("win32 without bash falls back to cmd.exe", () => {
-    const shell = resolveVerificationShell(true, false, "dir");
-    assert.equal(shell.shellBin, "cmd");
-    assert.deepStrictEqual(shell.shellArgs, ["/d", "/s", "/c", "dir"]);
-    assert.equal(shell.windowsVerbatimArguments, true);
-  });
-
   test("POSIX keeps the bash-preferring sh wrapper", () => {
-    const shell = resolveVerificationShell(false, true, "npm test");
+    const shell = resolveVerificationShell(false, "npm test");
     assert.equal(shell.shellBin, "sh");
     assert.equal(shell.shellArgs[0], "-c");
     assert.match(shell.shellArgs[1], /command -v bash/);

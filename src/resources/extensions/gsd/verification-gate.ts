@@ -148,13 +148,18 @@ export function hasWindowsBash(): boolean {
 
 /**
  * Pure shell selection for running one verification command (exported for
- * tests). POSIX keeps the existing bash-preferring sh wrapper; Windows uses
- * bash -c when a runnable bash exists (letting Node quote argv so a command
- * with spaces reaches bash as a single argument) and cmd.exe otherwise.
+ * tests). POSIX keeps the existing bash-preferring sh wrapper. Windows always
+ * resolves to bash -c (letting Node quote argv so a command with spaces
+ * reaches bash as a single argument): verification commands must run under
+ * bash, never cmd.exe, so POSIX-idiom verifies (`vendor/bin/*` Composer
+ * shims, `! grep -q` absence checks, `&&` chains) execute instead of dying
+ * as command-not-found (#2338/#2339). If bash is not runnable on the host
+ * the spawn fails (ENOENT) and the check classifies command-not-found,
+ * which the #2209 evidence rescue or the "not runnable on this platform"
+ * pause surfaces with an actionable message.
  */
 export function resolveVerificationShell(
   isWindows: boolean,
-  hasBash: boolean,
   command: string,
 ): { shellBin: string; shellArgs: string[]; windowsVerbatimArguments: boolean } {
   if (!isWindows) {
@@ -169,17 +174,10 @@ export function resolveVerificationShell(
       windowsVerbatimArguments: false,
     };
   }
-  if (hasBash) {
-    return {
-      shellBin: "bash",
-      shellArgs: ["-c", command],
-      windowsVerbatimArguments: false,
-    };
-  }
   return {
-    shellBin: "cmd",
-    shellArgs: ["/d", "/s", "/c", command],
-    windowsVerbatimArguments: true,
+    shellBin: "bash",
+    shellArgs: ["-c", command],
+    windowsVerbatimArguments: false,
   };
 }
 
@@ -1066,13 +1064,14 @@ export function runVerificationGate(options: RunVerificationGateOptions): Verifi
     );
     // Pass the command string as an argument to the shell explicitly
     // to avoid Node.js DEP0190 (spawnSync with shell: true and no args).
-    // On Windows prefer bash when it actually runs (Git for Windows / WSL)
-    // so POSIX-idiom verifies (`vendor/bin/*` Composer shims, `! grep -q`
+    // Verification commands always run under bash on Windows (never cmd), so
+    // POSIX-idiom verifies (`vendor/bin/*` Composer shims, `! grep -q`
     // absence checks, `&&` chains) execute instead of dying as
-    // command-not-found under cmd.exe (#2338, residual of #635); fall back
-    // to cmd.exe when bash is absent.
+    // command-not-found (#2338/#2339). When bash is absent the spawn fails
+    // cleanly and the check classifies command-not-found, which the evidence
+    // rescue (#2209) or the "not runnable on this platform" pause surfaces.
     const isWindows = process.platform === "win32";
-    const shell = resolveVerificationShell(isWindows, hasWindowsBash(), rewrittenCommand);
+    const shell = resolveVerificationShell(isWindows, rewrittenCommand);
     const shellBin = shell.shellBin;
     const shellArgs = shell.shellArgs;
     const outputDir = mkdtempSync(join(tmpdir(), "gsd-verification-"));
